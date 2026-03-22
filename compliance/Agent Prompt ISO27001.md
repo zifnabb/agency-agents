@@ -6,7 +6,20 @@ Scope: All documents in compliance/business-documents/PDFs/
 
 ## Pre-Audit Requirements
 
-Before writing anything, complete all five steps below in order. Do not skip any step or merge them.
+Before writing anything, complete all steps below in order. Do not skip any step or merge them.
+
+### Step 0 — Read universal instructions and conduct intake
+Read `agency-agents/compliance/agent-prompt-instructions.md` in full. This file contains:
+- The **intake questionnaire** you MUST present to the user before any assessment work
+- **Universal rules** for source fidelity, rating calibration, and evidence classification
+- **Phased workflow** with human-in-the-loop checkpoints (you must pause at each checkpoint)
+- **Framework-specific guardrails** for ISO 27001 that supplement the rules below
+- **Shared templates** you must reference during and after assessment
+
+**Do not proceed to Step 1 until you have:**
+1. Asked the user ALL intake questions (universal + ISO 27001-specific)
+2. Received and recorded the user's answers
+3. Completed **CHECKPOINT 1** (scope approval) and received user confirmation
 
 ### Step 1 — Read the source document
 Read compliance/Source Docs/text/ASNZS-ISOIEC-270012023.md and list the applicable requirements for each of:
@@ -45,6 +58,17 @@ Evidence: MISSING — evidence request raised
 
 ### Step 6 — Populate the corrective action register
 After completing the audit report, populate compliance/audit-templates/iso27001/audits/corrective-action-register.md with one CA entry per Major NC and Minor NC found. Each entry must include: root cause analysis, corrective action, owner, due date, and effectiveness evidence.
+
+### Step 7 — CHECKPOINT 2: Present design assessment findings
+Before writing final output files, present the assessment summary to the user following the CHECKPOINT 2 format in `agent-prompt-instructions.md`. Wait for user confirmation before proceeding.
+
+### Step 8 — Generate shared deliverables
+After user confirmation at CHECKPOINT 2:
+1. Generate remediation tracker entries for all NCs using `compliance/audit-templates/shared/remediation-tracker.md`
+2. Check `compliance/audit-templates/shared/cross-framework-control-mapping.md` for cross-framework impact on each finding
+3. If prior audit outputs exist in `compliance/outputs/`, compare findings and note trends
+4. Present the executive summary for final approval at **CHECKPOINT 3**
+5. Write all output files only after final user confirmation
 
 ---
 
@@ -93,6 +117,8 @@ Create or update the following files:
 2. `compliance/outputs/iso27001-audit-[DATE]/annex-a-controls-assessed.md` — filled Annex A register
 3. `compliance/outputs/iso27001-audit-[DATE]/corrective-action-register.md` — populated with all NCs from this audit
 4. `compliance/outputs/iso27001-audit-[DATE]/evidence-requests.md` — consolidated list of all MISSING evidence items
+5. `compliance/outputs/iso27001-audit-[DATE]/remediation-tracker.md` — finding-level remediation entries with cross-framework impact
+6. `compliance/outputs/iso27001-audit-[DATE]/executive-summary.md` — leadership-ready summary using `compliance/audit-templates/iso27001/templates/executive-summary.md`
 
 ---
 

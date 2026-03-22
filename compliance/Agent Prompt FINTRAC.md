@@ -8,6 +8,19 @@ Scope: All documents in compliance/business-documents/PDFs/
 
 Before writing anything, complete all steps below in order. Do not skip any step or merge them.
 
+### Step 0 — Read universal instructions and conduct intake
+Read `agency-agents/compliance/agent-prompt-instructions.md` in full. This file contains:
+- The **intake questionnaire** you MUST present to the user before any assessment work
+- **Universal rules** for source fidelity, rating calibration, and evidence classification
+- **Phased workflow** with human-in-the-loop checkpoints (you must pause at each checkpoint)
+- **Framework-specific guardrails** for FINTRAC that supplement the rules below
+- **Shared templates** you must reference during and after assessment
+
+**Do not proceed to Step 1 until you have:**
+1. Asked the user ALL intake questions (universal + FINTRAC-specific)
+2. Received and recorded the user's answers
+3. Completed **CHECKPOINT 1** (scope approval) and received user confirmation
+
 ### Step 1 — Read the source document
 Read compliance/Source Docs/text/FINTRAC requirements.md and list the applicable requirements for each of:
 
@@ -55,7 +68,18 @@ Every finding must include:
 Source: compliance/Source Docs/text/FINTRAC requirements.md — [Requirement area / Section heading]
 ```
 
-### Step 6 — Cite evidence on every finding
+### Step 6 — CHECKPOINT 2: Present assessment findings
+Before writing final output files, present the assessment summary to the user following the CHECKPOINT 2 format in `agent-prompt-instructions.md`. Wait for user confirmation before proceeding.
+
+### Step 7 — Generate shared deliverables
+After user confirmation at CHECKPOINT 2:
+1. Generate remediation tracker entries for all Partial/Fail findings using `compliance/audit-templates/shared/remediation-tracker.md`
+2. Check `compliance/audit-templates/shared/cross-framework-control-mapping.md` for cross-framework impact on each finding
+3. If prior audit outputs exist in `compliance/outputs/`, compare findings and note trends
+4. Present the executive summary for final approval at **CHECKPOINT 3**
+5. Write all output files only after final user confirmation
+
+### Step 8 — Cite evidence on every finding
 Every finding must include either:
 ```
 Evidence: compliance/business-documents/PDFs/[filename]
@@ -101,6 +125,7 @@ Create a dated output folder and place all deliverables inside it:
 3. `compliance/outputs/fintrac-audit-[DATE]/requirement-assessments/` — one assessment per requirement area
 4. `compliance/outputs/fintrac-audit-[DATE]/executive-summary.md` — overall findings summary with finding counts by result
 5. `compliance/outputs/fintrac-audit-[DATE]/evidence-requests.md` — consolidated MISSING evidence list
+6. `compliance/outputs/fintrac-audit-[DATE]/remediation-tracker.md` — finding-level remediation entries with cross-framework impact
 
 ---
 
