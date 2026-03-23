@@ -257,7 +257,80 @@ Please confirm this scope is correct before I proceed to the assessment.
 If anything needs to change, let me know now.
 ```
 
-**Do not proceed to Phase 2 until the user confirms the scope.**
+**Do not proceed to Phase 1a or Phase 2 until the user confirms the scope.**
+
+---
+
+## Phase 1a: Network Inspection (Optional) — CHECKPOINT 1a
+
+After scope approval, offer the user the option to perform live network inspections. Network inspection validates that controls are implemented and enforced on actual devices — not just documented in policies.
+
+Present this choice:
+
+```
+===========================================================
+  NETWORK INSPECTION — OPTIONAL
+  Intake > Scoping > [Network Inspection] > Assessment > Evidence > Reporting > Done
+===========================================================
+
+Would you like to perform live network inspections?
+
+Network inspection moves this audit beyond document review by inspecting
+device configurations, testing authentication enforcement, scanning TLS
+endpoints, and performing negative tests (attempting what should be blocked).
+
+Options:
+  (a) Yes — run all applicable network inspections for this framework
+  (b) Yes, with negative tests — include adversarial tests
+  (c) Yes, specific modules only — choose which inspection modules to run
+  (d) No — proceed with document-based assessment only
+
+Prerequisites for network inspection:
+  - Network access credentials (SSH/API) for in-scope devices
+  - Written authorization for network inspection and testing
+  - For negative tests: coordination with your operations team
+```
+
+If the user selects network inspection:
+
+1. Read `compliance/network-inspection/framework-test-matrix.md` to identify tests applicable to the selected framework(s)
+2. Read each applicable module from `compliance/network-inspection/modules/`
+3. Execute each test procedure, capture command outputs as evidence
+4. Evaluate output against the module's pass/fail criteria
+5. For negative tests: execute adversarial procedures and verify correct blocking
+6. Present results at CHECKPOINT 1a before proceeding to Phase 2:
+
+```
+===========================================================
+  CHECKPOINT 1a — NETWORK INSPECTION RESULTS
+  Intake > Scoping > [Network Inspection] > Assessment > Evidence > Reporting > Done
+===========================================================
+
+Network inspection complete for [framework]:
+
+| Module | Tests | Pass | Fail | Blocked |
+|--------|:-----:|:----:|:----:|:-------:|
+| [Module name] | [N] | [N] | [N] | [N] |
+
+Key findings:
+- [Finding with framework requirement reference]
+
+Negative test results: [N passed (correctly blocked), N failed (unexpectedly succeeded)]
+
+Network inspection evidence is saved to:
+  compliance/outputs/[audit-folder]/network-inspection/
+
+These results will be integrated into the design assessment.
+Shall I proceed to Phase 2?
+```
+
+**Integration rules:**
+- Network inspection test results are **operating evidence**. A passing network test elevates a requirement from "design-only" to "design + operating."
+- A **failing network inspection test overrides** a document-based "Pass" rating. If the policy says MFA is required but the network test shows MFA is not enforced, the result is "Fail" regardless of policy quality.
+- Evidence from network inspection is stored under `compliance/outputs/[audit-folder]/network-inspection/evidence/` and referenced in assessment records.
+- The executive summary must note which requirements were validated by network inspection vs. document review only.
+
+If the user declines network inspection, proceed directly to Phase 2. Note in the executive summary: "This assessment addresses design suitability only. No network inspection was performed."
 
 ---
 
@@ -510,6 +583,9 @@ The agent should use these shared templates during assessment when applicable:
 | Vendor Evidence Management | `compliance/audit-templates/shared/vendor-evidence-management.md` | When third-party evidence is needed |
 | Interview & Walkthrough | `compliance/audit-templates/shared/interview-walkthrough-templates.md` | When recommending interview procedures |
 | Readiness Scorecard | `compliance/audit-templates/shared/readiness-scorecard.md` | Phase 4 — optional readiness view |
+| Network Inspection Matrix | `compliance/network-inspection/framework-test-matrix.md` | Phase 1a — determine applicable network tests |
+| Network Inspection Modules | `compliance/network-inspection/modules/` | Phase 1a — test procedures for live inspection |
+| Network Inspection Runner | `compliance/network-inspection/inspection-runner.sh` | Phase 1a — orchestrate test execution |
 
 These templates live under `compliance/audit-templates/shared/` and are framework-agnostic.
 

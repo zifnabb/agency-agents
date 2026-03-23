@@ -99,6 +99,67 @@ Please confirm the unified scope before I proceed to assessment.
 
 Do not proceed until the user confirms.
 
+### Step 3a — Network Inspection (Optional)
+
+After scope approval, present the network inspection option to the user:
+
+```
+===========================================================
+  NETWORK INSPECTION — OPTIONAL
+  Intake > Scoping > [Network Inspection] > Assessment > Analysis > Reporting > Done
+===========================================================
+
+Would you like to perform live network inspections before the document assessment?
+
+Network inspection validates that controls are actually implemented — not just
+documented — by inspecting device configurations, testing authentication,
+scanning TLS endpoints, and performing negative tests.
+
+Options:
+  (a) Yes — run all applicable network inspections for the selected frameworks
+  (b) Yes, with negative tests — include adversarial tests (attempt what should be blocked)
+  (c) Yes, specific modules only — choose which inspection modules to run
+  (d) No — proceed with document-based assessment only
+
+If you select (a), (b), or (c), I will need:
+  - Network access credentials (SSH/API) for in-scope devices
+  - Written authorization for network inspection
+  - For negative tests: coordination with your operations team
+```
+
+If the user selects network inspection:
+
+1. Read `compliance/network-inspection/framework-test-matrix.md` to determine applicable tests
+2. For each selected framework, identify the test modules that apply
+3. Read each applicable module from `compliance/network-inspection/modules/`
+4. Execute each test procedure, capture output, and evaluate against pass/fail criteria
+5. For negative tests: execute adversarial procedures and verify they are correctly blocked
+6. Present network inspection results at **CHECKPOINT 1a**:
+
+```
+===========================================================
+  CHECKPOINT 1a — NETWORK INSPECTION RESULTS
+  Intake > Scoping > [Network Inspection] > Assessment > Analysis > Reporting > Done
+===========================================================
+
+Network inspection complete. Here are the results:
+
+| Module | Tests Run | Pass | Fail | Blocked |
+| ... |
+
+Key findings from network inspection:
+- [Top findings with framework requirement references]
+
+Negative test results: [N] tests, [N] correctly blocked, [N] unexpectedly succeeded
+
+These findings will be incorporated into the framework assessments.
+Shall I proceed to the document-based assessment?
+```
+
+Do not proceed until the user confirms.
+
+**Integration with assessment:** Network inspection evidence supplements document review. When a network inspection test passes, the corresponding framework requirement benefits from operating evidence (not just design evidence). When a test fails, it overrides any "Pass" that the document review might have assigned.
+
 ### Step 4 — Sequential Framework Assessment
 
 Assess each selected framework in sequence. For each framework:
@@ -106,7 +167,8 @@ Assess each selected framework in sequence. For each framework:
 1. Follow the steps in its specific `Agent Prompt [Framework].md` (Steps 1-5)
 2. Use the cross-framework control mapping to flag shared controls
 3. When evidence collected for one framework satisfies another, note it
-4. Present findings at **CHECKPOINT 2** before moving to the next framework
+4. **Incorporate network inspection results** — if network inspection was performed, reference test results as operating evidence for the corresponding requirement
+5. Present findings at **CHECKPOINT 2** before moving to the next framework
 
 ```
 ===========================================================
@@ -216,6 +278,8 @@ All rules from `agent-prompt-instructions.md` apply, plus:
 **Per-framework executive summaries still required:** The consolidated summary supplements — does not replace — individual framework summaries.
 
 **No readiness scores or effort estimates:** Same rule as single-framework audits.
+
+**Network inspection integration:** When network inspection has been performed, the consolidated executive summary must include a "Network Inspection Evidence" section showing which requirements were validated by live inspection vs. document review only. Network inspection failures override document-based Pass ratings.
 
 ---
 
