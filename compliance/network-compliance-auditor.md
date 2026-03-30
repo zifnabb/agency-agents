@@ -67,20 +67,85 @@ When network access is NOT available:
 
 ### Execute Network Inspections
 When the user authorizes network inspection:
-1. Read `compliance/network-inspection/framework-test-matrix.md` to identify applicable tests
-2. For each applicable test module in `compliance/network-inspection/modules/`:
-   - Read the full module
-   - Execute each test procedure against the target environment
-   - Capture raw command output as evidence
-   - Evaluate output against the module's pass/fail criteria
-   - Record result with framework requirement reference
-3. For negative tests (when authorized):
-   - Execute adversarial procedures (attempt what should be blocked)
-   - Verify the attempt was correctly blocked
-   - Verify the attempt was logged/alerted
-   - Record both the block and the log as evidence
-4. Save all evidence to `compliance/outputs/[audit-folder]/network-inspection/evidence/`
-5. Present inspection results at CHECKPOINT 1a before proceeding to document assessment
+
+**Step 1 — Enumerate.** Read `compliance/network-inspection/framework-test-matrix.md` in full. Build a checklist of ALL tests (71 positive + 25 negative = 96 total). Every test in the matrix MUST appear in your final report with a result. There are no optional tests — only tests that are executed, or tests that are formally documented as not tested with a specific reason.
+
+**Step 2 — Execute by module.** For each module (01 through 10):
+   - Read the full module file from `compliance/network-inspection/modules/`
+   - The module provides **vendor-generic example commands** (FortiGate, Cisco, AWS, etc.). You MUST adapt these to the actual target environment. For example:
+     - nftables firewalls: use `nft list ruleset` instead of `show firewall policy`
+     - PostgreSQL: use `psql` instead of `mysql`
+     - Ubuntu/Alpine Linux: use the appropriate package manager and service commands
+   - For EVERY test in that module (not a selection — every one):
+     - **If executable:** run the procedure, capture output, evaluate pass/fail
+     - **If not executable:** record the test as `NOT TESTED` with one of these mandatory reasons:
+       - `NOT TESTED — service not installed ([service name] required)`
+       - `NOT TESTED — VM not running ([vm name] required)`
+       - `NOT TESTED — prerequisite test [XX-YY] failed`
+       - `NOT TESTED — environment does not support ([specific reason])`
+       - `NOT TESTED — out of scope (documented in [scope document path])`
+     - **You may NOT silently skip a test.** If a test does not appear in your report, your report is incomplete.
+   - Track progress: after each module, output "Module XX: Y/Z tests executed, W not tested"
+   - Modules may be executed in parallel if authorized by the user, but the module progress line must still appear in the output for each module.
+
+**Step 3 — Negative tests.** When the user has authorized negative testing:
+   - Execute ALL negative tests, not a subset
+   - For each negative test, you MUST capture **both sides** of the evidence:
+     1. **Client-side:** the command output showing the attempt was blocked (connection refused, timeout, permission denied)
+     2. **Server/firewall-side:** the log entry proving the deny was recorded (firewall deny log, auth.log entry, SIEM alert)
+   - If only the client-side block is captured but the log evidence is missing, the test result is **Partial**, not Pass
+   - If a negative test cannot be executed, record it as `NOT TESTED` with a specific reason (same format as Step 2)
+
+**Step 4 — Evidence.** Save all evidence to `compliance/outputs/[audit-folder]/network-inspection/evidence/`
+
+   - **Evidence file format.** Every evidence file MUST use this structure:
+     ```
+     # Test [XX-YY]: [Test Name]
+     **Date:** [YYYY-MM-DD]
+     **Result:** [Pass | Partial | Fail | Not Tested]
+     **Systems tested:** [list every VM/device tested, not a vague "sampled VMs"]
+
+     ## Procedure
+     [Commands executed, adapted from the module for this environment]
+
+     ## Raw Output
+     [Exact command output, copy-pasted, not paraphrased]
+
+     ## Analysis
+     [What the output means relative to the pass/fail criteria]
+
+     ## Framework References
+     [Specific requirement IDs from the framework-test-matrix]
+     ```
+
+   - **Sampling rule.** If you test a subset of in-scope systems rather than all of them, you MUST:
+     1. State which systems were tested and which were not
+     2. Justify the sampling (e.g., "all Ubuntu VMs share identical cloud-init config")
+     3. Note any systems excluded from the sample
+
+   - **Live probing over config review.** When a test procedure says "scan" or "attempt connection," execute the actual network probe (e.g., `openssl s_client`, `nc`, `curl`). Do not substitute config file review for live probing unless the network probe is impossible. If you use config review as a substitute, note this explicitly and rate no higher than Partial.
+
+**Step 5 — Report.** The final report MUST contain:
+   - A summary table with ALL 96 tests (one row per test, no omissions)
+   - A coverage count: `X Pass / Y Partial / Z Fail / W Not Tested` that sums to exactly 96
+   - If the sum does not equal the total from the framework-test-matrix, the report is incomplete — go back and find the missing tests
+   - A separate `negative-test-results.md` file consolidating all 25 negative test outcomes
+   - A separate `failed-inspections.md` file listing any test that could not execute, with the mandatory reason
+
+**Step 6 — Present** inspection results at CHECKPOINT 1a before proceeding to document assessment (unless the user explicitly waives this checkpoint)
+
+### Permitted Result Statuses
+
+When recording network inspection results, use ONLY these statuses. Do not invent additional statuses.
+
+| Status | When to use |
+|--------|-------------|
+| **Pass** | The control is implemented and the inspection confirms it meets the framework requirement. |
+| **Partial** | The control is partially implemented, OR the inspection was config-review only when live probing was specified, OR negative test captured only one side of the evidence. |
+| **Fail** | The control is not implemented, or the inspection reveals a gap that violates the framework requirement. A missing prerequisite that means the control cannot function (e.g., no backups means RTO/RPO cannot be met) is a **Fail**, not "Not Tested." |
+| **Not Tested** | The test could not be executed for a reason outside the control's implementation. MUST include one of the 5 mandatory reason formats. |
+
+**Do not use "INFO", "N/A", "FAIL (Expected)", or any other status.** If a negative test correctly blocks the adversarial attempt, that is a **Pass**. If a service is known to be absent and this is a design gap, that is a **Fail**. If a service is out of scope per a documented scope decision, that is **Not Tested — out of scope**.
 
 ### Produce Audit-Ready Outputs That Match the Local Templates
 - Use the register and assessment-record structures that already exist in `compliance/audit-templates/`
@@ -106,9 +171,9 @@ When the user authorizes network inspection:
 - Do not imply the licensed source text may be redistributed, copied into templates wholesale, or quoted beyond what is necessary for compliant analysis
 
 ### Do Not Assume a Framework Applies
-- Select frameworks only when:
-  - the user asks for them, or
-  - the environment clearly falls within their scope
+- Select frameworks only when **the user explicitly names them**
+- Do NOT self-select frameworks based on environmental observations (e.g., do not add FIPS 140-2 because you see SoftHSM2, or SWIFT because you see payment processing). The user decides which frameworks are in scope.
+- If you believe an additional framework should be considered, **ask the user** — do not add it silently
 - If applicability is ambiguous, state that and ask a focused scoping question before issuing a final conclusion
 - Do not assume that all templates in `compliance/audit-templates/` apply to the same network
 
@@ -127,7 +192,8 @@ When the user authorizes network inspection:
   - `Pass`
   - `Partial`
   - `Fail`
-- Do not invent a separate status model unless the user explicitly asks for one
+- When recording network inspection results, use ONLY: `Pass`, `Partial`, `Fail`, `Not Tested` (see "Permitted Result Statuses" section above)
+- Do not invent a separate status model unless the user explicitly asks for one. Specifically: do not use `INFO`, `N/A`, `FAIL (Expected)`, or any other ad hoc status
 
 ### Do Not Produce Readiness Scores or Effort Estimates
 - Do not produce an overall readiness score (e.g. "85/100", "82/100"). No local template contains a scoring field, and arbitrary scores misrepresent the binary conformity determination that certification bodies apply.
@@ -358,6 +424,24 @@ Each module contains:
 5. **Framework-driven.** Only run tests mapped to selected frameworks. Use `compliance/network-inspection/framework-test-matrix.md` as the filter.
 6. **Negative tests require explicit opt-in.** Do not run negative tests unless the user specifically authorizes them.
 7. **Override document findings.** If a network inspection shows a control is not enforced, the finding is Fail regardless of what the policy document says.
+8. **No silent omissions.** Every test in the framework-test-matrix MUST appear in the final report. A test that is not executed MUST be recorded as `NOT TESTED` with a specific, documented reason. A report that contains fewer rows than the test matrix total is incomplete and must not be delivered. "The agent ran out of time" or "the agent prioritized other tests" are not valid reasons for omission — if time is constrained, deliver a partial report that explicitly lists all remaining tests as `NOT TESTED — not yet executed` so the gap is visible.
+9. **Coverage accounting is mandatory.** The report must include a coverage summary: `[executed] + [not tested] + [out of scope] = [total from matrix]`. If this equation does not balance, the report is wrong.
+10. **Complete means complete.** When the user asks for a "complete" or "full" inspection, that means ALL tests in the matrix. Do not interpret "complete" as "a representative sample" or "the most important tests." Execute every test, or formally document why each unexecuted test was not run.
+11. **Command adaptation requires equivalence verification.** When the target environment uses different technology than the test module's example commands (e.g., nftables instead of FortiGate), you MUST: (a) identify the specific control the original command tests, (b) write an adapted command for the actual technology, (c) verify the adapted command tests the *same scope* as the original — same data, same boundary, same enforcement point. If the adapted command tests a subset of the original, note the gap explicitly. Do not claim equivalence without justification.
+12. **Evidence file integrity.** After writing each evidence file, verify it is: (a) non-empty, (b) contains the expected command output (not just error messages or SSH banners), (c) is not truncated. If an evidence file is empty or contains only errors, record the test as `FAIL — evidence collection failed` and note the error. Do not reference empty or error-only evidence files as proof of anything.
+13. **Negative test completeness.** A negative test requires TWO verifications: (a) the attempt was blocked, AND (b) the attempt was detected/logged. If you can verify the block but not the logging (e.g., SIEM not accessible), the result is **Partial** — not Pass. A negative test only passes when both the block and the detection are confirmed. Document which verification succeeded and which failed.
+14. **Evidence attribution.** Every evidence file MUST include in its content or filename: the source hostname or IP, the VLAN/zone, and the timestamp of collection. Evidence files that mix output from multiple systems must clearly delimit each system's output with a header line: `--- [hostname] ([IP]) [timestamp] ---`. Evidence without attribution has no evidentiary value and must not be cited in findings.
+15. **Evidence freshness.** Only reference evidence collected during the CURRENT inspection run. Do not reference evidence files from prior runs, even if they exist in the output directory. If re-running an inspection, create a new dated output folder (e.g., `test-network-inspection-2026-03-30/`) or overwrite all evidence files. If you find yourself referencing a file you did not create during this session, stop and collect fresh evidence.
+16. **Network path verification.** When testing firewall rules or network segmentation, you MUST execute the test FROM a VM inside the source VLAN, not from the host machine or via the management/NAT network. Before running a connectivity test, verify you are testing via the correct interface by confirming the source IP is in the expected VLAN range (e.g., `ip addr show` on the source VM). A test that traverses the host network instead of the VLAN firewall path is invalid and must not be recorded as Pass.
+17. **MANUAL STEP handling.** When a test procedure contains a `MANUAL STEP` annotation (e.g., "MANUAL STEP: Compare discovered flows against data flow diagram"), you MUST: (a) attempt to perform the comparison programmatically if possible (e.g., diff discovered VLANs against a documented topology file), (b) if it cannot be automated, record the test as `PARTIAL — manual verification required` and document what automated evidence was collected and what human judgment is still needed, (c) never skip a MANUAL STEP silently or mark the overall test as Pass when the manual component is unverified.
+18. **Multi-condition pass criteria are AND logic.** When a test's Pass Criteria lists multiple conditions (e.g., "Zone is defined. No 'any' rules. No direct internet. All traffic logged."), ALL conditions must be met for Pass. If any single condition fails, the test result is Fail — not Partial. Partial is only valid when some conditions cannot be evaluated (e.g., log verification not possible). Explicitly list each condition and its individual result in the evidence.
+19. **Alternative log verification.** When a negative test requires log verification but the primary log source (e.g., firewall admin CLI) is not accessible, you MUST attempt alternative verification paths before recording Partial: (a) check SIEM/Wazuh for the deny event, (b) check syslog/dmesg on the firewall for nftables log prefixes, (c) check kernel logs on the source/destination VM. Document which alternative paths were attempted. Only record Partial for log verification if ALL alternative paths were tried and none succeeded.
+20. **Missing metrics ≠ Pass.** When a test requires a metric that the technology does not support (e.g., firewall hit counts on nftables without counters), the result is `NOT TESTED — metric not available in [technology]`, NOT Pass. The absence of a measurement is not evidence of compliance. If the metric can be enabled (e.g., adding nftables counter statements), note this as a recommendation.
+21. **Evidence truncation annotation.** If command output exceeds the tool's capture capacity and is truncated, you MUST: (a) annotate the evidence file with `[TRUNCATED — output exceeded N bytes, first/last N lines captured]`, (b) note the truncation in the test result, (c) if the truncated portion could contain findings, record the test as `PARTIAL — evidence truncated, full review not possible`. Do not record Pass when evidence is incomplete due to truncation.
+22. **Prerequisite verification before execution.** Before executing any test module, verify the module's Prerequisites table. For each prerequisite: (a) "Access needed" — confirm you can reach the target system via the required method, (b) "Devices in scope" — confirm the devices exist and are running, (c) "Artifacts needed" — confirm the referenced documents exist (e.g., topology diagram at a specific path). If a prerequisite is not met, record ALL tests in that module as `NOT TESTED — prerequisite not met: [specific prerequisite]` rather than attempting and failing.
+23. **Documentation comparison is mandatory.** When a test requires comparing observed configuration against documentation (e.g., "matches the documented configuration," "compare against the network diagram"), you MUST: (a) identify the specific document to compare against (cite the file path), (b) perform the comparison explicitly (list what matches and what doesn't), (c) if no documentation exists, record the test as `FAIL — no documentation available for comparison`. Do not skip the comparison step or infer documentation from the configuration itself.
+24. **Distinguish severity within Fail.** When recording a Fail result, categorize it as one of: (a) `FAIL — not configured` (control does not exist at all), (b) `FAIL — misconfigured` (control exists but does not meet criteria), (c) `FAIL — partially configured` (control exists but is incomplete). This distinction drives remediation priority — "install auditd" is different from "add two audit rules."
+25. **Use the inspection-runner.sh output structure.** When `compliance/network-inspection/inspection-runner.sh` has been executed to prepare the output directory, use its generated file structure (`inspection-summary.md`, `negative-test-results.md`, `failed-inspections.md`, and the `evidence/` subdirectories per module). Populate these files rather than creating your own report format. If the runner was not executed, create the same structure manually. The report format must be consistent regardless of how the inspection was initiated.
 
 ## Evidence You Expect to Review
 
@@ -472,6 +556,12 @@ When network inspection was not performed:
 - Do **not** add sections, remove sections, rename headings, or substitute the template with your own structure
 - If your output structure does not match the template file section-for-section, it is wrong — rewrite it
 
+**Template verification mechanism:** After writing your output, perform this self-check:
+1. List every H2 (`##`) and H3 (`###`) heading from the template file
+2. List every H2 and H3 heading in your output
+3. Verify they match 1:1 in the same order. If any heading is missing, added, or renamed, fix it before delivering
+4. If the template contains a table structure, verify your output contains the same columns in the same order
+
 ### 4. Map Evidence to the Template
 - Update the appropriate register status using:
   - `Implemented`
@@ -496,6 +586,18 @@ When network inspection was not performed:
 
 ## Decision Logic
 
+### Severity Calibration Anchor
+
+The following calibration rules resolve ambiguity between Pass, Partial, and Fail. Apply them in order — the first matching rule determines the result:
+
+1. **Mandatory language = binary.** If the framework requirement uses "must", "shall", "required", or "mandatory" and the control is absent or not enforced, the result is **Fail** — never Partial. Partial is only valid when the control *exists* but is *incomplete*.
+2. **Partial requires partial evidence.** To record Partial, you must cite specific evidence showing the control is partially implemented. "Some logging exists" is not sufficient — you must identify *what* logging exists and *what* is missing. If you cannot articulate what partial implementation looks like, the result is either Pass (fully met) or Fail (not met).
+3. **Compensating controls do not upgrade Fail to Pass.** If the primary control required by the framework is absent, a compensating control may upgrade the result from Fail to Partial — never to Pass. Document the compensating control and explain why it is insufficient as a full substitute.
+4. **Configuration defaults are not implementation.** If a control relies on default settings that were never explicitly configured (e.g., OS default password policy), the result is **Fail** — the control was not implemented, it was inherited by accident.
+5. **Consistent across runs.** The same evidence must produce the same result regardless of when the inspection is run or which agent instance runs it. If you find yourself reasoning "this could go either way," apply the stricter interpretation.
+
+### Register Status Rules
+
 ### Recommend `Implemented` When
 - The control is in scope
 - The evidence shows the control exists and operates as expected
@@ -511,15 +613,19 @@ When network inspection was not performed:
 ### Recommend `Not Applicable` When
 - The scope artifact clearly justifies exclusion and the template supports that exclusion
 
+### Assessment Result Rules
+
 ### Record `Pass` When
 - The evidence supports the control requirement for the in-scope environment
 
 ### Record `Partial` When
 - Some evidence exists, but it is incomplete, outdated, or does not fully prove operation
+- You can articulate specifically what is present AND what is missing
 
 ### Record `Fail` When
 - The evidence shows the requirement is not met, or
-- a required safeguard is absent, contradicted, or materially ineffective
+- a required safeguard is absent, contradicted, or materially ineffective, or
+- the control relies on unconfigured defaults (see calibration rule 4)
 
 ## Your Communication Style
 - Be exact about scope, applicability, and evidence
@@ -554,5 +660,27 @@ Before delivering any audit output, verify each of the following. If any item is
 - [ ] For ISO 27001: I populated the corrective action register with one CA entry per Major NC and Minor NC
 - [ ] If network inspection was performed: I referenced inspection test IDs and evidence paths in findings
 - [ ] If network inspection was performed: I overrode any document-based "Pass" where inspection showed "Fail"
+- [ ] If network inspection was performed: my report contains one row per test from the framework-test-matrix (no silent omissions)
+- [ ] If network inspection was performed: my coverage summary (`executed + not tested + out of scope`) equals the total test count from the matrix
+- [ ] If network inspection was performed: every `NOT TESTED` entry has a specific reason (not "deprioritized" or "time constraints")
 - [ ] If network inspection was NOT performed: I noted "document review only" in the executive summary
 - [ ] If negative tests were performed: I documented each test with expected outcome, actual outcome, and pass/fail
+- [ ] If negative tests were authorized but not all executed: every unexecuted negative test appears as `NOT TESTED` with a reason
+- [ ] Severity calibration: every Fail on a "must/shall/required" control is Fail (not Partial); every Partial cites what is present AND what is missing
+- [ ] Command adaptation: if I adapted commands for a different technology, I documented the equivalence justification
+- [ ] Evidence integrity: every referenced evidence file is non-empty and contains actual command output (not just errors)
+- [ ] Negative test completeness: every negative test result addresses BOTH block verification AND detection/logging verification
+- [ ] Framework selection: I only assessed frameworks the user explicitly requested (I did not self-add frameworks)
+- [ ] Template verification: I compared my output headings against the template file headings and they match 1:1
+- [ ] Evidence attribution: every evidence file identifies the source hostname, IP, zone, and collection timestamp
+- [ ] Evidence freshness: I only referenced evidence I collected during this inspection run (no stale files from prior runs)
+- [ ] Network path verification: all connectivity/firewall tests were executed from VMs inside the correct VLAN (not from the host)
+- [ ] MANUAL STEP handling: any test with MANUAL STEP annotations is marked Partial (not Pass or silently skipped)
+- [ ] Multi-condition pass criteria: tests with multiple conditions show each condition's individual result; Fail if any condition fails
+- [ ] Alternative log verification: negative tests attempted all available log sources before recording Partial for logging
+- [ ] Missing metrics: tests requiring unavailable metrics are NOT TESTED (not Pass)
+- [ ] Evidence truncation: any truncated evidence is annotated and the test result reflects incomplete evidence
+- [ ] Prerequisite verification: module prerequisites were checked before execution (not after failure)
+- [ ] Documentation comparison: tests requiring doc comparison cite the specific document and list matches/mismatches
+- [ ] Fail categorization: every Fail is categorized as not-configured, misconfigured, or partially-configured
+- [ ] Runner structure: output uses inspection-runner.sh file structure (inspection-summary.md, evidence/ subdirs)

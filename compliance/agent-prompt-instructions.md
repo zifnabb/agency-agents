@@ -295,10 +295,17 @@ If the user selects network inspection:
 
 1. Read `compliance/network-inspection/framework-test-matrix.md` to identify tests applicable to the selected framework(s)
 2. Read each applicable module from `compliance/network-inspection/modules/`
-3. Execute each test procedure, capture command outputs as evidence
-4. Evaluate output against the module's pass/fail criteria
-5. For negative tests: execute adversarial procedures and verify correct blocking
-6. Present results at CHECKPOINT 1a before proceeding to Phase 2:
+3. **Adapt procedures to the target environment.** Module procedures provide vendor-generic examples (FortiGate, Cisco, AWS). Translate these to the actual device platform (e.g., `nft list ruleset` for nftables, `psql` for PostgreSQL)
+4. **Execute each test via live probing**, not config file review alone. Capture raw command output as evidence
+5. Evaluate output against the module's pass/fail criteria
+6. For negative tests: execute adversarial procedures, capture **both** the client-side block AND the server/firewall-side deny log
+7. **Use only permitted statuses:** Pass, Partial, Fail, Not Tested. Do not use INFO, N/A, or ad hoc statuses
+8. **Produce all required output files:**
+   - `inspection-report.md` — full report with 96-row results table
+   - `negative-test-results.md` — consolidated negative test outcomes
+   - `failed-inspections.md` — tests that could not execute, with mandatory reasons
+   - `evidence/[module-dir]/` — one evidence file per test with structured format
+9. Present results at CHECKPOINT 1a before proceeding to Phase 2 (unless user waives):
 
 ```
 ===========================================================
@@ -308,17 +315,22 @@ If the user selects network inspection:
 
 Network inspection complete for [framework]:
 
-| Module | Tests | Pass | Fail | Blocked |
-|--------|:-----:|:----:|:----:|:-------:|
-| [Module name] | [N] | [N] | [N] | [N] |
+  Coverage: X Pass / Y Partial / Z Fail / W Not Tested = 96 total
 
-Key findings:
+| Module | Tests | Pass | Partial | Fail | Not Tested |
+|--------|:-----:|:----:|:-------:|:----:|:----------:|
+| [Module name] | [N] | [N] | [N] | [N] | [N] |
+
+Priority 1 findings:
 - [Finding with framework requirement reference]
 
-Negative test results: [N passed (correctly blocked), N failed (unexpectedly succeeded)]
+Negative tests: [N Pass (correctly blocked), N Fail (unexpectedly succeeded), N Not Tested]
 
-Network inspection evidence is saved to:
-  compliance/outputs/[audit-folder]/network-inspection/
+Output files:
+  inspection-report.md
+  negative-test-results.md
+  failed-inspections.md
+  evidence/ (N files across M modules)
 
 These results will be integrated into the design assessment.
 Shall I proceed to Phase 2?
@@ -329,6 +341,9 @@ Shall I proceed to Phase 2?
 - A **failing network inspection test overrides** a document-based "Pass" rating. If the policy says MFA is required but the network test shows MFA is not enforced, the result is "Fail" regardless of policy quality.
 - Evidence from network inspection is stored under `compliance/outputs/[audit-folder]/network-inspection/evidence/` and referenced in assessment records.
 - The executive summary must note which requirements were validated by network inspection vs. document review only.
+
+**Execution mode:**
+- The default is sequential module-by-module execution. The user may authorize parallel execution across modules (e.g., multiple agents running different modules simultaneously). If parallel execution is authorized, each module's progress line ("Module XX: Y/Z executed, W not tested") must still appear in the output.
 
 If the user declines network inspection, proceed directly to Phase 2. Note in the executive summary: "This assessment addresses design suitability only. No network inspection was performed."
 
