@@ -134,12 +134,14 @@ When the user authorizes network inspection:
 
 **Step 4 — Evidence.** Save all evidence to `compliance/outputs/[audit-folder]/network-inspection/evidence/`
 
+   - **One file per test.** Each test MUST have its own evidence file, named `[XX]-[YY]-[short-name].md` (e.g., `01-01-firewall-config.md`, `04-06-ids-ips.md`). Do NOT combine multiple tests into a single module-level file. This is required for auditability — each test's evidence must be independently referenceable.
+
    - **Evidence file format.** Every evidence file MUST use this structure:
      ```
      # Test [XX-YY]: [Test Name]
      **Date:** [YYYY-MM-DD]
      **Result:** [Pass | Partial | Fail | Not Tested]
-     **Systems tested:** [list every VM/device tested, not a vague "sampled VMs"]
+     **Systems tested:** [list every VM/device tested by hostname and VM ID]
 
      ## Procedure
      [Commands executed, adapted from the module for this environment]
@@ -154,6 +156,26 @@ When the user authorizes network inspection:
      [Specific requirement IDs from the framework-test-matrix]
      ```
 
+   - **NOT TESTED evidence files.** Even tests marked Not Tested MUST have an evidence file. The file must contain the mandatory reason in the exact format. Examples:
+     ```
+     # Test 06-01: Vulnerability Scan Results Review
+     **Date:** 2026-04-01
+     **Result:** Not Tested
+     **Systems tested:** None
+     **Reason:** NOT TESTED — service not installed (OpenVAS/Nessus vulnerability scanner required)
+     ## Framework References
+     ISO A.8.8 | PCI 11.3.1, 11.3.2 | SOC 2 CC7.1 | SWIFT 2.7
+     ```
+     ```
+     # Test 02-10: Physical Access System Inspection
+     **Date:** 2026-04-01
+     **Result:** Not Tested
+     **Systems tested:** None
+     **Reason:** NOT TESTED — environment does not support (virtual lab has no physical access controls)
+     ## Framework References
+     ISO A.7.1-A.7.4 | PCI 9.1-9.5 | SOC 2 CC6.4, CC6.5
+     ```
+
    - **Sampling rule.** If you test a subset of in-scope systems rather than all of them, you MUST:
      1. State which systems were tested and which were not
      2. Justify the sampling (e.g., "all Ubuntu VMs share identical cloud-init config")
@@ -161,12 +183,28 @@ When the user authorizes network inspection:
 
    - **Live probing over config review.** When a test procedure says "scan" or "attempt connection," execute the actual network probe (e.g., `openssl s_client`, `nc`, `curl`). Do not substitute config file review for live probing unless the network probe is impossible. If you use config review as a substitute, note this explicitly and rate no higher than Partial.
 
-**Step 5 — Report.** The final report MUST contain:
-   - A summary table with ALL 96 tests (one row per test, no omissions)
-   - A coverage count: `X Pass / Y Partial / Z Fail / W Not Tested` that sums to exactly 96
-   - If the sum does not equal the total from the framework-test-matrix, the report is incomplete — go back and find the missing tests
-   - A separate `negative-test-results.md` file consolidating all 25 negative test outcomes
-   - A separate `failed-inspections.md` file listing any test that could not execute, with the mandatory reason
+**Step 5 — Report and consolidated output files.** The inspection MUST produce these files:
+
+   1. **`inspection-report.md`** — the full report containing:
+      - A summary table with ALL 96 tests (one row per test, no omissions)
+      - A coverage count: `X Pass / Y Partial / Z Fail / W Not Tested` that sums to exactly 96
+      - If the sum does not equal the total from the framework-test-matrix, the report is incomplete — go back and find the missing tests
+
+   2. **`negative-test-results.md`** — a consolidated table of ALL 25 negative test outcomes:
+      ```
+      | Test ID | Test Name | Result | Client-Side Evidence | Server-Side Evidence |
+      |---------|-----------|--------|---------------------|---------------------|
+      | 01-09 | Cross-Zone Traffic | Pass | Connection timeout | DENY log captured |
+      ```
+
+   3. **`failed-inspections.md`** — a table of every test that could not execute:
+      ```
+      | Test ID | Test Name | Reason |
+      |---------|-----------|--------|
+      | 06-01 | Vulnerability Scan | NOT TESTED — service not installed (OpenVAS required) |
+      ```
+
+   **Responsibility note for parallel execution:** When tests are split across multiple parallel agents, the orchestrating session (not the sub-agents) is responsible for producing files 2 and 3 by consolidating sub-agent results. Each sub-agent must still produce its per-test evidence files (Step 4). The orchestrator collects the sub-agent summaries and generates the consolidated files before presenting at CHECKPOINT 1a.
 
 **Step 6 — Present** inspection results at CHECKPOINT 1a before proceeding to document assessment (unless the user explicitly waives this checkpoint)
 
@@ -178,10 +216,10 @@ When recording network inspection results, use ONLY these statuses. Do not inven
 |--------|-------------|
 | **Pass** | The control is implemented and the inspection confirms it meets the framework requirement. |
 | **Partial** | The control is partially implemented, OR the inspection was config-review only when live probing was specified, OR negative test captured only one side of the evidence. |
-| **Fail** | The control is not implemented, or the inspection reveals a gap that violates the framework requirement. A missing prerequisite that means the control cannot function (e.g., no backups means RTO/RPO cannot be met) is a **Fail**, not "Not Tested." |
-| **Not Tested** | The test could not be executed for a reason outside the control's implementation. MUST include one of the 5 mandatory reason formats. |
+| **Fail** | The control is not implemented, or the inspection reveals a gap that violates the framework requirement. A missing prerequisite that means the control cannot function (e.g., no backups means RTO/RPO cannot be met) is a **Fail**, not "Not Tested." Platform limitations that prevent a required control from functioning (e.g., no FIPS-validated kernel available for the OS/architecture) are also **Fail** — the control requirement is not met regardless of the reason. |
+| **Not Tested** | The test could not be executed for a reason outside the control's implementation AND outside the environment's design. MUST include one of the 5 mandatory reason formats. Use this ONLY for: out-of-scope items (wireless in a virtual lab), missing tools that are not part of the environment's design (no vulnerability scanner), or physical controls in a virtual environment. Do NOT use for platform limitations or design gaps — those are Fail. |
 
-**Do not use "INFO", "N/A", "FAIL (Expected)", or any other status.** If a negative test correctly blocks the adversarial attempt, that is a **Pass**. If a service is known to be absent and this is a design gap, that is a **Fail**. If a service is out of scope per a documented scope decision, that is **Not Tested — out of scope**.
+**Do not use "INFO", "N/A", "FAIL (Expected)", or any other status.** If a negative test correctly blocks the adversarial attempt, that is a **Pass**. If a service is known to be absent and this is a design gap, that is a **Fail**. If a service is out of scope per a documented scope decision, that is **Not Tested — out of scope**. If the platform cannot support a required control (e.g., no FIPS kernel for ARM64), that is a **Fail** with a note explaining the platform constraint — not Partial.
 
 ### Produce Audit-Ready Outputs That Match the Local Templates
 - Use the register and assessment-record structures that already exist in `compliance/audit-templates/`
