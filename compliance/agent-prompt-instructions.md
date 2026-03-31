@@ -289,6 +289,9 @@ Prerequisites for network inspection:
   - Network access credentials (SSH/API) for in-scope devices
   - Written authorization for network inspection and testing
   - For negative tests: coordination with your operations team
+  - All required VMs/systems must be running (the agent will start
+    stopped VMs as needed using the lab orchestrator, and shut them
+    down after testing to manage resource constraints)
 ```
 
 If the user selects network inspection:
@@ -343,7 +346,9 @@ Shall I proceed to Phase 2?
 - The executive summary must note which requirements were validated by network inspection vs. document review only.
 
 **Execution mode:**
-- The default is sequential module-by-module execution. The user may authorize parallel execution across modules (e.g., multiple agents running different modules simultaneously). If parallel execution is authorized, each module's progress line ("Module XX: Y/Z executed, W not tested") must still appear in the output.
+- **Boot-schedule execution** (recommended for RAM-constrained environments): Group tests into phases by VM dependency, not by module order. Execute all tests possible with the current VM set before swapping VMs. This minimizes start/stop cycles and maximizes RAM efficiency. Tests from different modules may run in the same phase.
+- **Sequential module execution** (default for unconstrained environments): Execute modules 01 through 10 in order.
+- **Parallel execution**: The user may authorize parallel execution within a phase (e.g., multiple agents running different modules' tests simultaneously against the currently-running VMs). Each module's progress line must still appear in the output.
 
 If the user declines network inspection, proceed directly to Phase 2. Note in the executive summary: "This assessment addresses design suitability only. No network inspection was performed."
 

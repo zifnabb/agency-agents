@@ -70,13 +70,49 @@ When the user authorizes network inspection:
 
 **Step 1 — Enumerate.** Read `compliance/network-inspection/framework-test-matrix.md` in full. Build a checklist of ALL tests (71 positive + 25 negative = 96 total). Every test in the matrix MUST appear in your final report with a result. There are no optional tests — only tests that are executed, or tests that are formally documented as not tested with a specific reason.
 
-**Step 2 — Execute by module.** For each module (01 through 10):
-   - Read the full module file from `compliance/network-inspection/modules/`
-   - The module provides **vendor-generic example commands** (FortiGate, Cisco, AWS, etc.). You MUST adapt these to the actual target environment. For example:
-     - nftables firewalls: use `nft list ruleset` instead of `show firewall policy`
-     - PostgreSQL: use `psql` instead of `mysql`
-     - Ubuntu/Alpine Linux: use the appropriate package manager and service commands
-   - For EVERY test in that module (not a selection — every one):
+**Step 1a — Plan the boot schedule.** In RAM-constrained environments where not all VMs can run simultaneously, you MUST plan a boot schedule before executing any tests. This avoids unnecessary VM start/stop cycles and prevents exceeding RAM limits.
+
+   1. **Check current status** by running the lab orchestrator's status command (e.g., `./scripts/lab.sh status`).
+   2. **Read the environment's boot group documentation** (e.g., CLAUDE.md) to understand RAM constraints and which VMs belong to which boot group.
+   3. **Map every test to its required VMs.** Identify which tests need periphery VMs that are not in the default running set:
+      - Module 04 (IDS/IPS tests 04-06, 04-11): IDS/IPS VM (e.g., suricata-ids-01)
+      - Module 09 (Bastion 09-02, 09-06): bastion VM (e.g., mgmt-bastion-01)
+      - Module 09 (VPN 09-01): VPN VM (e.g., vpn-wireguard-01)
+   4. **Build a phased boot schedule** that groups tests by VM dependency, NOT by module order. The goal is to minimize VM start/stop cycles and keep RAM under the constraint. Tests within a phase may come from different modules. Example:
+
+      ```
+      Phase 1 — Core + App running (fits in RAM):
+        All tests that only need core + app VMs
+        (Modules 01-03, 05-08 complete; Module 04 minus IDS tests;
+         Module 09 minus VPN/bastion tests; Module 10 out of scope)
+
+      Phase 2 — Stop App, start IDS VM (fits in RAM):
+        04-06, 04-11 (IDS-dependent tests from Module 04)
+
+      Phase 3 — Stop IDS, start Bastion + VPN (fits in RAM):
+        09-01, 09-02, 09-06 (VPN/bastion tests from Module 09)
+        Then stop periphery VMs.
+      ```
+
+   5. **Present the boot schedule to the user** before executing, so they can approve the phase plan and RAM usage. Include estimated RAM per phase.
+   6. **Execute phases in order.** At each phase transition:
+      - Shut down VMs no longer needed (e.g., `./scripts/lab.sh down <hostname>`)
+      - Start VMs for the next phase (e.g., `./scripts/lab.sh up <hostname>`)
+      - Wait for SSH to become available before proceeding with tests
+      - Record in evidence files: "VM started for Phase N testing, shut down after"
+   7. **Do NOT use `NOT TESTED — VM not running` if the VM can be started.** This reason is only valid when:
+      - The user has explicitly said not to start the VM
+      - Starting the VM would exceed RAM constraints even in a dedicated phase
+      - The VM does not exist (not created)
+
+**Step 2 — Execute tests by phase.** Within each phase, execute tests grouped by the currently-running VM set. Tests may come from different modules — this is expected when following the boot schedule.
+
+   - For each test in the phase:
+     - Read the relevant module file from `compliance/network-inspection/modules/`
+     - The module provides **vendor-generic example commands** (FortiGate, Cisco, AWS, etc.). You MUST adapt these to the actual target environment. For example:
+       - nftables firewalls: use `nft list ruleset` instead of `show firewall policy`
+       - PostgreSQL: use `psql` instead of `mysql`
+       - Ubuntu/Alpine Linux: use the appropriate package manager and service commands
      - **If executable:** run the procedure, capture output, evaluate pass/fail
      - **If not executable:** record the test as `NOT TESTED` with one of these mandatory reasons:
        - `NOT TESTED — service not installed ([service name] required)`
@@ -85,8 +121,8 @@ When the user authorizes network inspection:
        - `NOT TESTED — environment does not support ([specific reason])`
        - `NOT TESTED — out of scope (documented in [scope document path])`
      - **You may NOT silently skip a test.** If a test does not appear in your report, your report is incomplete.
-   - Track progress: after each module, output "Module XX: Y/Z tests executed, W not tested"
-   - Modules may be executed in parallel if authorized by the user, but the module progress line must still appear in the output for each module.
+   - Track progress: after completing all tests from a module (across phases), output "Module XX: Y/Z tests executed, W not tested"
+   - Tests within a phase may be executed in parallel if authorized by the user, but the module progress line must still appear in the output.
 
 **Step 3 — Negative tests.** When the user has authorized negative testing:
    - Execute ALL negative tests, not a subset
